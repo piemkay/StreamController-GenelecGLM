@@ -1,0 +1,36 @@
+{
+    "generic": {
+        "copyright": "StreamController Contributors",
+        "original-url": "https://github.com/your-username/StreamController-GenelecGLM",
+        "license": "MIT",
+        "license-url": "https://opensource.org/licenses/MIT",
+        "description": "Genelec GLM Plugin for StreamController"
+    },
+    "genlc": {
+        "copyright": "Mark Bergsma",
+        "original-url": "https://github.com/markbergsma/genlc",
+        "license": "GPL-3.0",
+        "license-url": "https://www.gnu.org/licenses/gpl-3.0.html",
+        "description": "Python module for managing Genelec SAM monitors through the GLM network adapter"
+    },
+    "assets/genelec.png": {
+        "copyright": "Placeholder - replace with Genelec-style icon",
+        "license": "MIT"
+    },
+    "assets/volume.png": {
+        "copyright": "Placeholder - replace with volume icon",
+        "license": "MIT"
+    },
+    "assets/muted.png": {
+        "copyright": "Placeholder - replace with muted icon",
+        "license": "MIT"
+    },
+    "assets/power_on.png": {
+        "copyright": "Placeholder - replace with power on icon",
+        "license": "MIT"
+    },
+    "assets/power_off.png": {
+        "copyright": "Placeholder - replace with power off icon",
+        "license": "MIT"
+    }
+}

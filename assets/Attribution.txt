@@ -1,0 +1,11 @@
+Asset attribution for Genelec GLM Plugin
+
+This directory contains placeholder icons. You should replace them with
+appropriate icons for production use.
+
+Suggested icons:
+- genelec.png: Plugin thumbnail/icon
+- volume.png: Volume active state
+- muted.png: Muted state
+- power_on.png: Monitors powered on
+- power_off.png: Monitors in standby/off

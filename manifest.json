@@ -1,0 +1,26 @@
+{
+    "name": "Genelec GLM",
+    "version": "1.0.0",
+    "app-version": "1.5.0-beta",
+    "minimum-app-version": "1.5.0-beta",
+    "id": "com_github_genelec_glm",
+    "github": "https://github.com/piemkay/StreamController-GenelecGLM",
+    "thumbnail": "assets/genelec.png",
+    "descriptions": {
+        "en_US": "Control Genelec SAM speakers through the GLM network adapter. Adjust volume, mute/unmute, wake up, and shutdown your Genelec monitors directly from your Stream Deck. Perfect for Stream Deck Plus dial control."
+    },
+    "short-descriptions": {
+        "en_US": "Genelec GLM speaker control"
+    },
+    "tags": [
+        "Genelec",
+        "GLM",
+        "Audio",
+        "Speakers",
+        "Monitor",
+        "Volume",
+        "Dial",
+        "Knob",
+        "StreamDeck+"
+    ]
+}
