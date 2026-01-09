@@ -6,11 +6,8 @@ Rotate the dial to adjust volume, press to toggle mute.
 from src.backend.PluginManager.ActionBase import ActionBase
 from src.backend.PluginManager.EventAssigner import EventAssigner
 from src.backend.DeckManagement.InputIdentifier import Input
-import sys
 import os
 import importlib.util
-
-import time
 
 import gi
 gi.require_version("Gtk", "4.0")
@@ -28,11 +25,6 @@ class GenelecVolumeDial(ActionBase):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._genelec_manager = None
-        self._pending_volume_db = None  # Pending volume to set
-        self._last_send_time = 0  # Last time we sent a volume command
-        self._finalize_source_id = None  # GLib timeout for final volume send
-        self._keepalive_source_id = None  # GLib timeout for keepalive pings
-        self._keepalive_count = 0  # Number of keepalive pings sent
         self._load_genelec_manager()
         
         # Register dial-specific event assigners
@@ -173,75 +165,16 @@ class GenelecVolumeDial(ActionBase):
         except Exception:
             pass
 
-        # Calculate new volume from pending or current
-        if self._pending_volume_db is not None:
-            current_db = self._pending_volume_db
-        else:
-            current_db = self._genelec_manager.get_volume_db()
+        # Calculate new volume
+        current_db = self._genelec_manager.get_volume_db()
         new_db = current_db + (direction * step_db)
         new_db = max(min_db, min(max_db, new_db))
 
-        # Store pending volume
-        self._pending_volume_db = new_db
-
-        # Rate limit: only send commands every 200ms during active rotation
-        now = time.time()
-        time_since_last = now - self._last_send_time
-
-        if time_since_last >= 0.2:
-            # Enough time passed, send immediately
-            self._send_volume(new_db)
-
-        # Always update display for responsiveness
-        self._genelec_manager._current_volume_db = new_db
-        self._update_display()
-
-        # Cancel any running keepalive since we're actively rotating again
-        if self._keepalive_source_id is not None:
-            GLib.source_remove(self._keepalive_source_id)
-            self._keepalive_source_id = None
-
-        # Schedule a deferred finalize to ensure the final volume is sent
-        if self._finalize_source_id is not None:
-            GLib.source_remove(self._finalize_source_id)
-        # Send final volume 250ms after last rotation (short delay to batch rapid rotations)
-        self._finalize_source_id = GLib.timeout_add(250, self._finalize_volume)
-
-    def _send_volume(self, volume_db: float) -> None:
-        """Send volume command and update timestamp."""
-        if self._genelec_manager.set_volume_db(volume_db):
-            self._last_send_time = time.time()
-        else:
+        # Send volume immediately on every tick
+        if not self._genelec_manager.set_volume_db(new_db):
             self.show_error(duration=1)
 
-    def _finalize_volume(self) -> bool:
-        """Send the final pending volume after rotation stops."""
-        self._finalize_source_id = None
-        if self._pending_volume_db is not None:
-            self._send_volume(self._pending_volume_db)
-            self._pending_volume_db = None
-        # Start keepalive pings to prevent speaker idle timeout
-        self._start_keepalive()
-        return False  # Don't repeat
-
-    def _start_keepalive(self) -> None:
-        """Start periodic keepalive pings to prevent speaker silence."""
-        if self._keepalive_source_id is not None:
-            GLib.source_remove(self._keepalive_source_id)
-        # Send pings every 1 second for 6 seconds to cover the idle timeout
-        self._keepalive_count = 0
-        self._keepalive_source_id = GLib.timeout_add(1000, self._send_keepalive_ping)
-
-    def _send_keepalive_ping(self) -> bool:
-        """Send a keepalive ping using LED command (doesn't affect audio)."""
-        self._keepalive_count += 1
-        if self._keepalive_count <= 6:
-            if self._genelec_manager:
-                self._genelec_manager.ping()
-            return True  # Continue
-        else:
-            self._keepalive_source_id = None
-            return False  # Stop
+        self._update_display()
 
     def on_dial_turn_cw(self, data=None) -> None:
         """Called when the dial is rotated clockwise (volume up)."""
