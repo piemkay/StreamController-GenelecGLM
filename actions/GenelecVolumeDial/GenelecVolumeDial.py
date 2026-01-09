@@ -26,6 +26,8 @@ class GenelecVolumeDial(ActionBase):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._genelec_manager = None
+        self._pending_volume_db = None  # Debounce: pending volume to set
+        self._debounce_source_id = None  # GLib timeout source ID
         self._load_genelec_manager()
         
         # Register dial-specific event assigners
@@ -140,42 +142,61 @@ class GenelecVolumeDial(ActionBase):
     def on_dial_rotate(self, direction: int) -> None:
         """
         Called when the dial is rotated.
-        
+
         Args:
             direction: Positive for clockwise, negative for counter-clockwise.
         """
         if not self._genelec_manager:
             self.show_error(duration=1)
             return
-        
+
         # Lazy connect on first interaction
         if not self._genelec_manager.is_connected():
             if not self._genelec_manager.connect():
                 self.show_error(duration=1)
                 return
-        
+
         settings = self.get_settings()
         step_db = settings.get("step_size_db", 1.0)
         min_db = settings.get("min_volume_db", -60.0)
         max_db = settings.get("max_volume_db", 0.0)
-        
+
         # Enforce plugin's global max volume limit
         try:
             plugin_max = self.plugin_base.get_max_volume_db()
             max_db = min(max_db, plugin_max)
         except Exception:
             pass
-        
-        # Calculate new volume
-        current_db = self._genelec_manager.get_volume_db()
+
+        # Calculate new volume from pending or current
+        if self._pending_volume_db is not None:
+            current_db = self._pending_volume_db
+        else:
+            current_db = self._genelec_manager.get_volume_db()
         new_db = current_db + (direction * step_db)
         new_db = max(min_db, min(max_db, new_db))
-        
-        # Set the new volume
-        if self._genelec_manager.set_volume_db(new_db):
-            self._update_display()
-        else:
-            self.show_error(duration=1)
+
+        # Store pending volume and update display immediately for responsiveness
+        self._pending_volume_db = new_db
+        self._genelec_manager._current_volume_db = new_db  # Update for display
+        self._update_display()
+
+        # Cancel previous debounce timer if any
+        if self._debounce_source_id is not None:
+            GLib.source_remove(self._debounce_source_id)
+
+        # Schedule actual volume change after debounce delay (100ms)
+        self._debounce_source_id = GLib.timeout_add(100, self._apply_pending_volume)
+
+    def _apply_pending_volume(self) -> bool:
+        """Apply the pending volume after debounce delay."""
+        self._debounce_source_id = None
+        if self._pending_volume_db is not None:
+            volume_to_set = self._pending_volume_db
+            self._pending_volume_db = None
+            if not self._genelec_manager.set_volume_db(volume_to_set):
+                self.show_error(duration=1)
+        return False  # Don't repeat
 
     def on_dial_turn_cw(self, data=None) -> None:
         """Called when the dial is rotated clockwise (volume up)."""
