@@ -1,2 +1,2 @@
 genlc @ git+https://github.com/markbergsma/genlc#egg=genlc
-hid
+hidapi
