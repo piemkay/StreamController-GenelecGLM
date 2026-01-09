@@ -229,12 +229,19 @@ class GenelecManager:
         with cls._lock:
             try:
                 # Fresh connection for each volume change prevents the 5s silence issue
+                # Replicate exactly what CLI does
                 if not cls._ensure_imports():
                     return False
 
                 hid_adapter = hid.Device(const.GENELEC_GLM_VID, const.GENELEC_GLM_PID)
                 usbtransport = transport.USBTransport(hid_adapter)
                 samgroup = sam.SAMGroup(usbtransport)
+
+                # CLI creates USBAdapter which queries the adapter
+                usb_adapter_obj = sam.USBAdapter(samgroup)
+
+                # CLI calls discover_monitors before set_volume
+                list(samgroup.discover_monitors())
 
                 # Set volume
                 samgroup.set_volume_glm(volume_db)
