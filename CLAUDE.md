@@ -2,6 +2,10 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Important Reminders
+
+**Always bump the version in `manifest.json`** when making any code changes.
+
 ## Project Overview
 
 StreamController plugin for controlling Genelec SAM professional monitoring speakers via the Genelec GLM USB network adapter. Provides volume dial control, mute toggle, and power control actions for Stream Deck devices.
