@@ -228,21 +228,24 @@ class GenelecManager:
 
         with cls._lock:
             try:
-                # Use subprocess to call genlc CLI - this prevents the 5s silence issue
-                # because CLI opens fresh connection and closes it after each command
-                result = subprocess.run(
-                    ["genlc", "set-volume", f"--volume={volume_db:.1f}dB"],
-                    capture_output=True,
-                    timeout=5
-                )
-                if result.returncode == 0:
-                    cls._current_volume_db = volume_db
-                    cls._is_muted = False
-                    logger.debug(f"Set volume to {volume_db:.1f} dB")
-                    return True
-                else:
-                    logger.error(f"genlc failed: {result.stderr}")
+                # Fresh connection for each volume change prevents the 5s silence issue
+                if not cls._ensure_imports():
                     return False
+
+                hid_adapter = hid.Device(const.GENELEC_GLM_VID, const.GENELEC_GLM_PID)
+                usbtransport = transport.USBTransport(hid_adapter)
+                samgroup = sam.SAMGroup(usbtransport)
+
+                # Set volume
+                samgroup.set_volume_glm(volume_db)
+
+                # Close connection immediately
+                hid_adapter.close()
+
+                cls._current_volume_db = volume_db
+                cls._is_muted = False
+                logger.debug(f"Set volume to {volume_db:.1f} dB")
+                return True
             except Exception as e:
                 logger.error(f"Failed to set volume: {e}")
                 return False
