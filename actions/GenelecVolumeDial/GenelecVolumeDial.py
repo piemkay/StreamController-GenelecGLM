@@ -200,8 +200,8 @@ class GenelecVolumeDial(ActionBase):
         if self._keepalive_source_id is not None:
             GLib.source_remove(self._keepalive_source_id)
         self._keepalive_count = 0
-        # Send keepalive commands every 200ms for 6 seconds after rotation stops
-        self._keepalive_source_id = GLib.timeout_add(200, self._send_keepalive)
+        # Send just a few keepalive commands to bridge the gap
+        self._keepalive_source_id = GLib.timeout_add(800, self._send_keepalive)
 
     def _send_volume(self, volume_db: float) -> None:
         """Send volume command and update timestamp."""
@@ -213,8 +213,8 @@ class GenelecVolumeDial(ActionBase):
     def _send_keepalive(self) -> bool:
         """Send keepalive volume commands to prevent speaker silence."""
         self._keepalive_count += 1
-        # Send current volume as keepalive (30 times = 6 seconds)
-        if self._keepalive_count <= 30:
+        # Send just 3 keepalives at 800ms intervals (2.4 seconds total)
+        if self._keepalive_count <= 3:
             current_vol = self._genelec_manager.get_volume_db()
             self._genelec_manager.set_volume_db(current_vol)
             return True  # Continue
