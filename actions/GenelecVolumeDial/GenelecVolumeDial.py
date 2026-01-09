@@ -25,6 +25,8 @@ class GenelecVolumeDial(ActionBase):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._genelec_manager = None
+        self._keepalive_source_id = None
+        self._keepalive_count = 0
         self._load_genelec_manager()
         
         # Register dial-specific event assigners
@@ -175,6 +177,29 @@ class GenelecVolumeDial(ActionBase):
             self.show_error(duration=1)
 
         self._update_display()
+
+        # Start/restart keepalive to prevent speaker silence after adjustment
+        self._start_keepalive()
+
+    def _start_keepalive(self) -> None:
+        """Start periodic stay_online keepalive after volume adjustment."""
+        # Cancel any existing keepalive
+        if self._keepalive_source_id is not None:
+            GLib.source_remove(self._keepalive_source_id)
+        # Send stay_online every 500ms for 6 seconds after last rotation
+        self._keepalive_count = 0
+        self._keepalive_source_id = GLib.timeout_add(500, self._send_keepalive)
+
+    def _send_keepalive(self) -> bool:
+        """Send stay_online keepalive to prevent speaker silence."""
+        self._keepalive_count += 1
+        if self._keepalive_count <= 12:  # 6 seconds total
+            if self._genelec_manager:
+                self._genelec_manager.stay_online()
+            return True  # Continue
+        else:
+            self._keepalive_source_id = None
+            return False  # Stop
 
     def on_dial_turn_cw(self, data=None) -> None:
         """Called when the dial is rotated clockwise (volume up)."""

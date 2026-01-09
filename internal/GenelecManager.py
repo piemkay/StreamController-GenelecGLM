@@ -365,11 +365,21 @@ class GenelecManager:
         return cls._is_muted
 
     @classmethod
-    def ping(cls) -> bool:
-        """
-        Send a lightweight ping to keep the GLM connection active.
+    def debug_available_methods(cls) -> list:
+        """List all available methods on SAMGroup for debugging."""
+        if not cls._samgroup:
+            return []
+        methods = [m for m in dir(cls._samgroup) if not m.startswith('_')]
+        logger.info(f"Available SAMGroup methods: {methods}")
+        return methods
 
-        Uses LED refresh which communicates with speakers but shouldn't affect audio.
+    @classmethod
+    def stay_online(cls) -> bool:
+        """
+        Send a keepalive to maintain device connectivity.
+
+        This uses the GLM protocol's native stay_online command which
+        keeps speakers active without affecting audio playback.
 
         Returns:
             True if successful, False otherwise.
@@ -379,17 +389,10 @@ class GenelecManager:
 
         with cls._lock:
             try:
-                # Send LED command to first monitor - this communicates with hardware
-                # but shouldn't affect audio playback
-                if cls._monitors:
-                    first_addr = next(iter(cls._monitors))
-                    monitor = cls._monitors[first_addr]
-                    # Set LED to current state (green, not pulsing) - essentially a no-op
-                    monitor.bypass(led_color="green", led_pulsing=False)
-                    return True
-                return False
+                cls._samgroup.stay_online()
+                return True
             except Exception as e:
-                logger.debug(f"Ping failed: {e}")
+                logger.debug(f"stay_online failed: {e}")
                 return False
 
     @classmethod
