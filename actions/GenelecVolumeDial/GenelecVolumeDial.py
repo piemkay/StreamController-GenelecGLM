@@ -171,8 +171,7 @@ class GenelecVolumeDial(ActionBase):
         new_db = max(min_db, min(max_db, new_db))
 
         # Send volume immediately on every tick
-        # poll_after=True helps transition speakers back to normal playback
-        if not self._genelec_manager.set_volume_db(new_db, poll_after=True):
+        if not self._genelec_manager.set_volume_db(new_db):
             self.show_error(duration=1)
 
         self._update_display()

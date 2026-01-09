@@ -207,14 +207,12 @@ class GenelecManager:
         return result
 
     @classmethod
-    def set_volume_db(cls, volume_db: float, poll_after: bool = False) -> bool:
+    def set_volume_db(cls, volume_db: float) -> bool:
         """
         Set the master volume in decibels.
 
         Args:
             volume_db: Volume in dB (-130.0 to 0.0)
-            poll_after: If True, poll a monitor after setting volume to help
-                       transition speakers back to normal playback mode
 
         Returns:
             True if successful, False otherwise.
@@ -229,20 +227,12 @@ class GenelecManager:
 
         with cls._lock:
             try:
-                # Volume is a broadcast command - no need to discover monitors
+                # Send volume command twice like wakeup_all does
+                cls._samgroup.set_volume_glm(volume_db)
                 cls._samgroup.set_volume_glm(volume_db)
                 cls._current_volume_db = volume_db
                 cls._is_muted = False
                 logger.debug(f"Set volume to {volume_db:.1f} dB")
-
-                # Poll a monitor to help transition back to normal playback
-                if poll_after and cls._monitors:
-                    try:
-                        first_addr = next(iter(cls._monitors))
-                        cls._monitors[first_addr].poll()
-                    except Exception:
-                        pass  # Polling is best-effort
-
                 return True
             except Exception as e:
                 logger.error(f"Failed to set volume: {e}")
