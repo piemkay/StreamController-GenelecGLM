@@ -30,7 +30,8 @@ class GenelecVolumeDial(ActionBase):
         self._genelec_manager = None
         self._pending_volume_db = None  # Pending volume to set
         self._last_send_time = 0  # Last time we sent a volume command
-        self._finalize_source_id = None  # GLib timeout for final volume
+        self._keepalive_source_id = None  # GLib timeout for keepalive
+        self._keepalive_count = 0  # Number of keepalives sent
         self._load_genelec_manager()
         
         # Register dial-specific event assigners
@@ -194,12 +195,13 @@ class GenelecVolumeDial(ActionBase):
         self._genelec_manager._current_volume_db = new_db
         self._update_display()
 
-        # NOTE: Finalize disabled for testing - if silence stops occurring,
-        # the issue is the delayed final command triggering speaker protection
-        # Cancel previous finalize timer
-        # if self._finalize_source_id is not None:
-        #     GLib.source_remove(self._finalize_source_id)
-        # self._finalize_source_id = GLib.timeout_add(500, self._finalize_volume)
+        # Start keepalive to prevent speaker silence
+        # Cancel previous keepalive timer and restart
+        if self._keepalive_source_id is not None:
+            GLib.source_remove(self._keepalive_source_id)
+        self._keepalive_count = 0
+        # Send keepalive commands every 200ms for 6 seconds after rotation stops
+        self._keepalive_source_id = GLib.timeout_add(200, self._send_keepalive)
 
     def _send_volume(self, volume_db: float) -> None:
         """Send volume command and update timestamp."""
@@ -208,14 +210,17 @@ class GenelecVolumeDial(ActionBase):
         else:
             self.show_error(duration=1)
 
-    def _finalize_volume(self) -> bool:
-        """Ensure final volume value is applied after rotation stops."""
-        self._finalize_source_id = None
-        if self._pending_volume_db is not None:
-            volume_to_set = self._pending_volume_db
-            self._pending_volume_db = None
-            self._send_volume(volume_to_set)
-        return False  # Don't repeat
+    def _send_keepalive(self) -> bool:
+        """Send keepalive volume commands to prevent speaker silence."""
+        self._keepalive_count += 1
+        # Send current volume as keepalive (30 times = 6 seconds)
+        if self._keepalive_count <= 30:
+            current_vol = self._genelec_manager.get_volume_db()
+            self._genelec_manager.set_volume_db(current_vol)
+            return True  # Continue
+        else:
+            self._keepalive_source_id = None
+            return False  # Stop
 
     def on_dial_turn_cw(self, data=None) -> None:
         """Called when the dial is rotated clockwise (volume up)."""

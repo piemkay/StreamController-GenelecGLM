@@ -1,6 +1,6 @@
 {
     "name": "Genelec GLM",
-    "version": "1.0.4",
+    "version": "1.0.5",
     "app-version": "1.5.0-beta",
     "minimum-app-version": "1.5.0-beta",
     "id": "com_github_piemkay_GenelecGLM",
