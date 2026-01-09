@@ -227,13 +227,9 @@ class GenelecManager:
 
         with cls._lock:
             try:
+                # CLI calls discover_monitors() before set_volume - this prevents silence
+                list(cls._samgroup.discover_monitors())
                 cls._samgroup.set_volume_glm(volume_db)
-                # Try to read from USB adapter to keep connection active
-                # This is a non-blocking read that may return empty
-                try:
-                    cls._samgroup.transport.adapter.read(64, timeout=1)
-                except Exception:
-                    pass
                 cls._current_volume_db = volume_db
                 cls._is_muted = False
                 logger.debug(f"Set volume to {volume_db:.1f} dB")
