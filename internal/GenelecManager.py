@@ -5,6 +5,7 @@ Uses the genlc library: https://github.com/markbergsma/genlc
 """
 import logging
 import threading
+import subprocess
 import math
 from typing import Optional, List, Dict, Any
 
@@ -227,13 +228,21 @@ class GenelecManager:
 
         with cls._lock:
             try:
-                # CLI calls discover_monitors() before set_volume - this prevents silence
-                list(cls._samgroup.discover_monitors())
-                cls._samgroup.set_volume_glm(volume_db)
-                cls._current_volume_db = volume_db
-                cls._is_muted = False
-                logger.debug(f"Set volume to {volume_db:.1f} dB")
-                return True
+                # Use subprocess to call genlc CLI - this prevents the 5s silence issue
+                # because CLI opens fresh connection and closes it after each command
+                result = subprocess.run(
+                    ["genlc", "set-volume", f"--volume={volume_db:.1f}dB"],
+                    capture_output=True,
+                    timeout=5
+                )
+                if result.returncode == 0:
+                    cls._current_volume_db = volume_db
+                    cls._is_muted = False
+                    logger.debug(f"Set volume to {volume_db:.1f} dB")
+                    return True
+                else:
+                    logger.error(f"genlc failed: {result.stderr}")
+                    return False
             except Exception as e:
                 logger.error(f"Failed to set volume: {e}")
                 return False
