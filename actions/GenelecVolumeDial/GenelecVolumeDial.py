@@ -31,6 +31,8 @@ class GenelecVolumeDial(ActionBase):
         self._pending_volume_db = None  # Pending volume to set
         self._last_send_time = 0  # Last time we sent a volume command
         self._finalize_source_id = None  # GLib timeout for final volume send
+        self._keepalive_source_id = None  # GLib timeout for keepalive pings
+        self._keepalive_count = 0  # Number of keepalive pings sent
         self._load_genelec_manager()
         
         # Register dial-specific event assigners
@@ -194,8 +196,12 @@ class GenelecVolumeDial(ActionBase):
         self._genelec_manager._current_volume_db = new_db
         self._update_display()
 
+        # Cancel any running keepalive since we're actively rotating again
+        if self._keepalive_source_id is not None:
+            GLib.source_remove(self._keepalive_source_id)
+            self._keepalive_source_id = None
+
         # Schedule a deferred finalize to ensure the final volume is sent
-        # This replaces the keepalive mechanism - a single command after rotation stops
         if self._finalize_source_id is not None:
             GLib.source_remove(self._finalize_source_id)
         # Send final volume 250ms after last rotation (short delay to batch rapid rotations)
@@ -214,7 +220,28 @@ class GenelecVolumeDial(ActionBase):
         if self._pending_volume_db is not None:
             self._send_volume(self._pending_volume_db)
             self._pending_volume_db = None
+        # Start keepalive pings to prevent speaker idle timeout
+        self._start_keepalive()
         return False  # Don't repeat
+
+    def _start_keepalive(self) -> None:
+        """Start periodic keepalive pings to prevent speaker silence."""
+        if self._keepalive_source_id is not None:
+            GLib.source_remove(self._keepalive_source_id)
+        # Send pings every 1 second for 6 seconds to cover the idle timeout
+        self._keepalive_count = 0
+        self._keepalive_source_id = GLib.timeout_add(1000, self._send_keepalive_ping)
+
+    def _send_keepalive_ping(self) -> bool:
+        """Send a keepalive ping using LED command (doesn't affect audio)."""
+        self._keepalive_count += 1
+        if self._keepalive_count <= 6:
+            if self._genelec_manager:
+                self._genelec_manager.ping()
+            return True  # Continue
+        else:
+            self._keepalive_source_id = None
+            return False  # Stop
 
     def on_dial_turn_cw(self, data=None) -> None:
         """Called when the dial is rotated clockwise (volume up)."""

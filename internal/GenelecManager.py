@@ -365,6 +365,34 @@ class GenelecManager:
         return cls._is_muted
 
     @classmethod
+    def ping(cls) -> bool:
+        """
+        Send a lightweight ping to keep the GLM connection active.
+
+        Uses LED refresh which communicates with speakers but shouldn't affect audio.
+
+        Returns:
+            True if successful, False otherwise.
+        """
+        if not cls._is_connected:
+            return False
+
+        with cls._lock:
+            try:
+                # Send LED command to first monitor - this communicates with hardware
+                # but shouldn't affect audio playback
+                if cls._monitors:
+                    first_addr = next(iter(cls._monitors))
+                    monitor = cls._monitors[first_addr]
+                    # Set LED to current state (green, not pulsing) - essentially a no-op
+                    monitor.bypass(led_color="green", led_pulsing=False)
+                    return True
+                return False
+            except Exception as e:
+                logger.debug(f"Ping failed: {e}")
+                return False
+
+    @classmethod
     def wakeup_all(cls) -> bool:
         """
         Wake up all monitors from standby.
